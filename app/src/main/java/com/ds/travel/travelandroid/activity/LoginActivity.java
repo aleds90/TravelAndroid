@@ -38,6 +38,8 @@ import com.android.volley.VolleyError;
 import com.android.volley.toolbox.StringRequest;
 import com.android.volley.toolbox.Volley;
 import com.ds.travel.travelandroid.R;
+import com.ds.travel.travelandroid.database.TokenStore;
+import com.ds.travel.travelandroid.model.Token;
 import com.ds.travel.travelandroid.service.Task;
 import com.ds.travel.travelandroid.service.UrlFactory;
 
@@ -60,16 +62,8 @@ public class LoginActivity extends AppCompatActivity implements LoaderCallbacks<
     private static final int REQUEST_READ_CONTACTS = 0;
 
     /**
-     * A dummy authentication store containing known user names and passwords.
-     * TODO: remove after connecting to a real authentication system.
-     */
-    private static final String[] DUMMY_CREDENTIALS = new String[]{
-            "foo@example.com:hello", "bar@example.com:world"
-    };
-    /**
      * Keep track of the login task to ensure we can cancel it if requested.
      */
-
     // UI references.
     private AutoCompleteTextView mEmailView;
     private EditText mPasswordView;
@@ -80,6 +74,7 @@ public class LoginActivity extends AppCompatActivity implements LoaderCallbacks<
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_login);
+        System.out.println("---------------------LOGIN ACTIVITY---------------------");
         // Set up the login form.
         mEmailView = (AutoCompleteTextView) findViewById(R.id.email);
         populateAutoComplete();
@@ -150,7 +145,6 @@ public class LoginActivity extends AppCompatActivity implements LoaderCallbacks<
             }
         }
     }
-
 
     /**
      * Attempts to sign in or register the account specified by the login form.
@@ -287,7 +281,6 @@ public class LoginActivity extends AppCompatActivity implements LoaderCallbacks<
         mEmailView.setAdapter(adapter);
     }
 
-
     private interface ProfileQuery {
         String[] PROJECTION = {
                 ContactsContract.CommonDataKinds.Email.ADDRESS,
@@ -299,8 +292,7 @@ public class LoginActivity extends AppCompatActivity implements LoaderCallbacks<
     }
 
     public  void login_task(final Context context, String username, String password){
-        String url = UrlFactory.URL_PREFIX + "oauth/token?grant_type=password&client_id=restapp&client_secret=restapp&username="+username+"&password="+password;
-
+        String url = UrlFactory.urlLogin(username,password);
 
         StringRequest getRequest = new StringRequest(Request.Method.GET, url,
                 new Response.Listener<String>() {
@@ -308,7 +300,12 @@ public class LoginActivity extends AppCompatActivity implements LoaderCallbacks<
                     public void onResponse(String response) {
                         try {
                             JSONObject jsonResponse = new JSONObject(response);
-                            System.out.println("Response: " + jsonResponse.toString());
+                            System.out.println("access_token: " + jsonResponse.getString("value"));
+                            System.out.println("refresh_tokena: " + jsonResponse.getJSONObject("refreshToken").getString("value"));
+
+                            Token token = new Token(jsonResponse.getJSONObject("refreshToken").getString("value"), jsonResponse.getString("value"));
+                            TokenStore tokenStore = new TokenStore(getApplicationContext());
+                            tokenStore.storeToken(token);
 
                             Intent intent = new Intent(LoginActivity.this, MainActivity.class);
                             startActivity(intent);
@@ -324,13 +321,14 @@ public class LoginActivity extends AppCompatActivity implements LoaderCallbacks<
                         error.printStackTrace();
                         NetworkResponse networkResponse = error.networkResponse;
                         if (networkResponse != null && networkResponse.statusCode == 400) {
-                            mPasswordView.setError("Wrong Password or Username");
-                            mEmailView.setError("Wrong Password or Username");
+                            mPasswordView.setError(getString(R.string.error_incorrect_login));
+                            mEmailView.setError(getString(R.string.error_incorrect_login));
                         }
                     }
                 }
         );
         Volley.newRequestQueue(context).add(getRequest);
     }
+
 }
 
